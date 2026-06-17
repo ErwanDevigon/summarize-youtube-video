@@ -1,35 +1,38 @@
-# YouTube Clean Transcript
+# summarize-youtube-video
 
-Outil Python simple et propre pour récupérer un **transcript bien formaté** (sous-titres auto ou manuels) d’une vidéo YouTube.
+**Transcript propre + Résumé intelligent par IA locale**
+
+Un outil en ligne de commande qui :
+- Récupère les sous-titres auto-générés d’une vidéo YouTube
+- Les nettoie parfaitement (grâce à [youtube-clean-transcript](https://github.com/ErwanDevigon/youtube-clean-transcript))
+- Génère un **résumé structuré et pertinent** avec **Gemma-4 12B** (via llama.cpp)
+
+---
+
+## ✨ Fonctionnalités
+
+- Utilisation de ton package `youtube-clean-transcript`
+- Résumé automatique avec modèle local (aucun coût API)
+- Sauvegarde dans `~/Downloads/transcripts/`
+- Deux fichiers générés :
+  - `Titre de la vidéo.txt` → Transcript complet et propre
+  - `Titre de la vidéo - Summary.txt` → Résumé bien structuré
+- Interface simple (CLI)
+
+---
+
+## Prérequis
+
+- Python 3.10+
+- [llama.cpp](https://github.com/ggerganov/llama.cpp) avec `llama-server` lancé sur le port 8080
+- Ton alias `lma` pour lancer Gemma-4 12B
+- `youtube-clean-transcript` installé en mode editable
+
+---
 
 ## Installation
 
 ```bash
-git clone https://github.com/ErwanDevigon/youtube-clean-transcript.git
-cd youtube-clean-transcript
-pip install -r requirements.txt
-```
+cd ~/Projets/summarize-youtube-video
+pip install -e .
 
-## Utilisation
-
-**Méthode recommandée** (depuis la racine du projet) :
-
-```bash
-python -m youtube_transcript.main --url "https://www.youtube.com/watch?v=..."
-```
-
-Ou directement :
-
-```bash
-cd src/youtube_transcript
-python main.py
-```
-
-## Fonctionnalités
-- Récupère automatiquement le titre de la vidéo
-- Télécharge le transcript (priorité : anglais → français)
-- Nettoie le texte et le sauvegarde dans un fichier `.txt` avec un nom propre
-- Gestion des erreurs claire
-
-## Auteur
-**ErwanDevigon**
