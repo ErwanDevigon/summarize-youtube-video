@@ -1,15 +1,19 @@
 #!/usr/bin/env python3
 import sys
-from pathlib import Path
 import subprocess
-import re
+from pathlib import Path
 
 from summarize_youtube.summarizer import LocalSummarizer
+from summarize_youtube.llama_server_manager import LlamaServerManager
 
 
 def main():
     print("🎥 summarize-yt — Transcript + Résumé IA (Gemma-4 12B)")
-    print("=" * 65)
+    print("=" * 70)
+
+    # Gestion du serveur llama
+    server_manager = LlamaServerManager()
+    server_manager.start()
 
     # Récupération de l'URL
     if len(sys.argv) > 1:
@@ -19,15 +23,16 @@ def main():
 
     if not url:
         print("❌ Aucune URL fournie.")
+        server_manager.stop_if_needed()
         sys.exit(1)
 
-    # === Dossier de sortie ===
+    # Dossier de sortie
     output_dir = Path("~/Downloads/transcripts").expanduser()
     output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"📁 Fichiers seront sauvegardés dans : {output_dir}")
+    print(f"📁 Sauvegarde dans : {output_dir}\n")
 
-    # 1. Appel à youtube-clean-transcript
-    print("\n📥 Récupération du transcript propre...")
+    # 1. Récupération du transcript
+    print("📥 Récupération du transcript propre...")
     try:
         result = subprocess.run([
             "python", "-m", "youtube_transcript.main",
@@ -37,25 +42,23 @@ def main():
 
         print(result.stdout.strip())
 
-        # Récupération du dernier fichier .txt créé
+        # Récupération du dernier fichier .txt
         txt_files = sorted(output_dir.glob("*.txt"), key=lambda f: f.stat().st_mtime, reverse=True)
         if not txt_files:
-            print("❌ Aucun fichier transcript trouvé.")
+            print("❌ Aucun transcript trouvé.")
+            server_manager.stop_if_needed()
             sys.exit(1)
 
         transcript_file = txt_files[0]
         title = transcript_file.stem
         transcript_text = transcript_file.read_text(encoding="utf-8")
 
-    except subprocess.CalledProcessError as e:
-        print("❌ Erreur pendant la récupération du transcript :")
-        print(e.stderr)
-        sys.exit(1)
     except Exception as e:
-        print(f"❌ Erreur : {e}")
+        print(f"❌ Erreur lors de la récupération du transcript : {e}")
+        server_manager.stop_if_needed()
         sys.exit(1)
 
-    # 2. Résumé avec Gemma-4
+    # 2. Génération du résumé
     print("\n🤖 Génération du résumé avec Gemma-4 12B...")
     summarizer = LocalSummarizer()
     summary = summarizer.summarize(transcript_text, title)
@@ -67,8 +70,11 @@ def main():
         f.write(summary)
 
     print(f"✅ Résumé sauvegardé → {summary_file.name}")
-    print(f"📍 {summary_file}")
-    print("\n🎉 Opération terminée !")
+
+    # Nettoyage du serveur
+    server_manager.stop_if_needed()
+
+    print("\n🎉 Opération terminée avec succès !")
 
 
 if __name__ == "__main__":
