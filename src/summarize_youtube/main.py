@@ -1,51 +1,80 @@
 #!/usr/bin/env python3
+"""
+rezmyt — YouTube Transcript + Local AI Summary (v2.0)
+"""
+
 import sys
-import subprocess
+import argparse
 from pathlib import Path
+import subprocess
 
-from summarize_youtube.summarizer import LocalSummarizer
-from summarize_youtube.llama_server_manager import LlamaServerManager
+from summarize_me_this_text.summarizer import LocalSummarizer
+from summarize_me_this_text.llama_server_manager import LlamaServerManager
 
 
-def main():
-    print("🎥 summarize-yt — Transcript + Résumé IA (Gemma-4 12B)")
-    print("=" * 70)
+def parse_args():
+    parser = argparse.ArgumentParser(
+        description="rezmyt — Clean YouTube transcript + local AI summary",
+        formatter_class=argparse.RawDescriptionHelpFormatter
+    )
+    parser.add_argument("url", nargs="?", help="YouTube URL to summarize")
+    parser.add_argument("-s", "--style", choices=["structured", "bullets", "concise", "detailed", "transcript"],
+                        default="structured", help="Summary style")
+    parser.add_argument("-l", "--lang", choices=["fr", "en"], default="fr",
+                        help="Language of the summary (default: fr)")
+    parser.add_argument("-o", "--output", type=Path, default=Path("~/transcripts").expanduser(),
+                        help="Output directory")
+    parser.add_argument("--keep-server", action="store_true",
+                        help="Do not stop llama-server after summary")
 
-    # Gestion du serveur llama
+    return parser.parse_args()
+
+
+def main() -> None:
+    args = parse_args()
+
+    print("🎥 rezmyt — YouTube Transcript + Local AI Summary")
+    print("=" * 72)
+
+    # === URL handling FIRST (before heavy server start) ===
+    if not args.url:
+        args.url = input("\n📎 Paste YouTube URL:\n> ").strip()
+
+    if not args.url:
+        print("❌ No URL provided.")
+        sys.exit(1)
+
+    # Create output directory
+    args.output.mkdir(parents=True, exist_ok=True)
+    print(f"📁 Saving to: {args.output}")
+    print(f"   Style   : {args.style}")
+    print(f"   Language: {args.lang}\n")
+
+    # === Start server only now ===
     server_manager = LlamaServerManager()
     server_manager.start()
 
-    # Récupération de l'URL
-    if len(sys.argv) > 1:
-        url = sys.argv[1]
-    else:
-        url = input("\nColle l'URL YouTube ici :\n> ").strip()
-
-    if not url:
-        print("❌ Aucune URL fournie.")
-        server_manager.stop_if_needed()
-        sys.exit(1)
-
-    # Dossier de sortie
-    output_dir = Path("~/Downloads/transcripts").expanduser()
-    output_dir.mkdir(parents=True, exist_ok=True)
-    print(f"📁 Sauvegarde dans : {output_dir}\n")
-
-    # 1. Récupération du transcript
-    print("📥 Récupération du transcript propre...")
+    # 1. Fetch transcript
+    print("📥 Fetching clean transcript...")
     try:
-        result = subprocess.run([
-            "python", "-m", "youtube_transcript.main",
-            "--url", url,
-            "--output", str(output_dir)
-        ], capture_output=True, text=True, check=True)
+        subprocess.run(
+            [
+                "python", "-m", "youtube_transcript.main",
+                "--url", args.url,
+                "--output", str(args.output)
+            ],
+            check=True
+        )
 
-        print(result.stdout.strip())
+        # Get latest .txt file
+        txt_files = sorted(
+            args.output.glob("*.txt"),
+            key=lambda f: f.stat().st_mtime,
+            reverse=True
+        )
 
-        # Récupération du dernier fichier .txt
-        txt_files = sorted(output_dir.glob("*.txt"), key=lambda f: f.stat().st_mtime, reverse=True)
         if not txt_files:
-            print("❌ Aucun transcript trouvé.")
+            print("❌ No transcript found.")
             server_manager.stop_if_needed()
             sys.exit(1)
 
@@ -53,28 +82,46 @@ def main():
         title = transcript_file.stem
         transcript_text = transcript_file.read_text(encoding="utf-8")
 
+    except FileNotFoundError:
+        print("❌ youtube-clean-transcript not found. Please install it in editable mode.")
+        server_manager.stop_if_needed()
+        sys.exit(1)
     except Exception as e:
-        print(f"❌ Erreur lors de la récupération du transcript : {e}")
+        print(f"❌ Error fetching transcript: {e}")
         server_manager.stop_if_needed()
         sys.exit(1)
 
-    # 2. Génération du résumé
-    print("\n🤖 Génération du résumé avec Gemma-4 12B...")
+    # 2. Generate summary with full options
+    print(f"\n🤖 Generating {args.style} summary in {args.lang}...")
     summarizer = LocalSummarizer()
-    summary = summarizer.summarize(transcript_text, title)
 
-    summary_file = transcript_file.with_name(f"{transcript_file.stem} - Summary.txt")
+    summary = summarizer.summarize(
+        transcript_text,
+        title=title,
+        style=args.style,
+        language=args.lang
+    )
 
-    with open(summary_file, "w", encoding="utf-8") as f:
-        f.write(f"# Résumé : {title}\n\n")
-        f.write(summary)
+    # Save with nice filename (style + lang suffix like in summarize-me-this-text)
+    suffix = f" [{args.style}]" if args.style != "structured" else ""
+    summary_file = transcript_file.with_name(f"{title} - Summary{suffix} ({args.lang}).md")
 
-    print(f"✅ Résumé sauvegardé → {summary_file.name}")
+    summary_file.write_text(
+        f"# Summary: {title}\n"
+        f"Style: {args.style} | Lang: {args.lang}\n\n"
+        f"{summary}",
+        encoding="utf-8"
+    )
 
-    # Nettoyage du serveur
-    server_manager.stop_if_needed()
+    print(f"✅ Summary saved → {summary_file.name}")
 
-    print("\n🎉 Opération terminée avec succès !")
+    # Cleanup
+    if not args.keep_server:
+        server_manager.stop_if_needed()
+    else:
+        print("🔄 Server kept running (--keep-server)")
+
+    print("\n🎉 Done!")
 
 
 if __name__ == "__main__":

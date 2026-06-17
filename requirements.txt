@@ -1,4 +1,0 @@
-youtube-clean-transcript @ git+https://github.com/ErwanDevigon/youtube-clean-transcript.git
-requests
-yt-dlp
-youtube-transcript-api

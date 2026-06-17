@@ -1,14 +1,16 @@
 [project]
 name = "summarize-youtube-video"
-version = "0.1.0"
-description = "Récupère un transcript propre d'une vidéo YouTube + résumé intelligent avec Gemma-4 12B (llama.cpp)"
+version = "2.0.0"
+description = "Fetch clean YouTube transcripts and generate local AI summaries"
 readme = "README.md"
 requires-python = ">=3.10"
 dependencies = [
-    "youtube-clean-transcript",
-    "requests",
-    "yt-dlp",
+    "summarize-me-this-text>=0.2.0",
 ]
 
 [project.scripts]
-summarize-yt = "summarize_youtube.main:main"
+rezmyt = "summarize_youtube.main:main"
+
+[build-system]
+requires = ["setuptools>=45", "wheel"]
+build-backend = "setuptools.build_meta"
