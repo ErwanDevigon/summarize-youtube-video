@@ -36,41 +36,60 @@ Un outil en ligne de commande simple qui permet de :
 git clone https://github.com/ErwanDevigon/summarize-youtube-video.git
 cd summarize-youtube-video
 pip install -e .
+```
 
-Alias recommandé (facultatif)Ajoutez dans votre ~/.bashrc ou ~/.zshrc :bash
+### Alias recommandé (facultatif)
 
+Ajoutez dans votre `~/.bashrc` ou `~/.zshrc` :
+
+```bash
 summarize-yt() {
     cd ~/Downloads
     summarize-yt "$@"
 }
+```
 
-Puis rechargez votre shell :bash
-
+Puis rechargez votre shell :
+```bash
 source ~/.bashrc
+```
 
-Utilisationbash
+---
 
+## Utilisation
+
+```bash
 # Mode interactif (recommandé)
 summarize-yt
+```
 
 # Ou directement avec une URL
+```bash
 summarize-yt "https://www.youtube.com/watch?v=7otgeJXailY"
+```
 
-Exemple de sortie
+---
 
+## Exemple de sortie
+
+```
 🎥 summarize-yt — Transcript + Résumé IA (Gemma-4 12B)
 ============================================================
 
 📁 Fichiers seront sauvegardés dans : /home/user/Downloads/transcripts
 
 📥 Récupération du transcript propre...
-✅ Transcript sauvegardé → Build Small Hackathon Kickoff.txt
+✅ Transcript sauvegardé → video name.txt
 
 🤖 Génération du résumé avec Gemma-4 12B...
-✅ Résumé sauvegardé → Build Small Hackathon Kickoff - Summary.txt
+✅ Résumé sauvegardé → video name - Summary.txt
+```
 
-Structure du projet
+---
 
+## Structure du projet
+
+```
 summarize-youtube-video/
 ├── src/summarize_youtube/
 │   ├── main.py
@@ -78,7 +97,15 @@ summarize-youtube-video/
 ├── pyproject.toml
 ├── README.md
 └── ...
+```
 
-LicenceMIT LicenseAuteur : Erwan DevigonEOF
+---
 
+## Licence
+
+MIT License
+
+---
+
+**Auteur :** Erwan Devigon
 
