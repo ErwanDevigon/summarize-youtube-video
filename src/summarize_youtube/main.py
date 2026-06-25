@@ -1,6 +1,6 @@
 #!/usr/bin/env python3
 """
-rezmyt — YouTube Transcript + Local AI Summary (v2.0)
+rezmyt — YouTube Transcript + Local AI Summary (v2.2)
 """
 
 import sys
@@ -18,8 +18,9 @@ def parse_args():
         formatter_class=argparse.RawDescriptionHelpFormatter
     )
     parser.add_argument("url", nargs="?", help="YouTube URL to summarize")
-    parser.add_argument("-s", "--style", choices=["structured", "bullets", "concise", "detailed", "transcript"],
-                        default="structured", help="Summary style")
+    parser.add_argument("-s", "--style", 
+                        choices=["structured", "bullets", "concise", "detailed", "transcript"],
+                        help="Summary style. If omitted, generates all 3 versions")
     parser.add_argument("-l", "--lang", choices=["fr", "en"], default="fr",
                         help="Language of the summary (default: fr)")
     parser.add_argument("-o", "--output", type=Path, default=Path("~/transcripts").expanduser(),
@@ -36,7 +37,7 @@ def main() -> None:
     print("🎥 rezmyt — YouTube Transcript + Local AI Summary")
     print("=" * 72)
 
-    # === URL handling FIRST (before heavy server start) ===
+    # === URL handling ===
     if not args.url:
         args.url = input("\n📎 Paste YouTube URL:\n> ").strip()
 
@@ -47,73 +48,95 @@ def main() -> None:
     # Create output directory
     args.output.mkdir(parents=True, exist_ok=True)
     print(f"📁 Saving to: {args.output}")
-    print(f"   Style   : {args.style}")
-    print(f"   Language: {args.lang}\n")
-
-    # === Start server only now ===
-    server_manager = LlamaServerManager()
-    server_manager.start()
+    print(f"   Language: {args.lang}")
+    if args.style:
+        print(f"   Style   : {args.style} (single)")
+    else:
+        print(f"   Style   : ALL 3 (detailed + structured + bullets)")
+    print()
 
     # 1. Fetch transcript
     print("📥 Fetching clean transcript...")
     try:
-        subprocess.run(
+        result = subprocess.run(
             [
                 "python", "-m", "youtube_transcript.main",
                 "--url", args.url,
                 "--output", str(args.output)
             ],
-            check=True
+            check=True,
+            capture_output=True,
+            text=True,
+            timeout=180
         )
 
-        # Get latest .txt file
-        txt_files = sorted(
-            args.output.glob("*.txt"),
-            key=lambda f: f.stat().st_mtime,
-            reverse=True
-        )
+        # === Extraction du nom du fichier créé ===
+        transcript_file = None
+        for line in result.stdout.splitlines():
+            if "===TRANSCRIPT_FILE:" in line:
+                file_path = line.split("===TRANSCRIPT_FILE:")[1].strip("= ")
+                transcript_file = Path(file_path)
+                break
 
-        if not txt_files:
-            print("❌ No transcript found.")
-            server_manager.stop_if_needed()
+        if not transcript_file or not transcript_file.exists():
+            txt_files = sorted(
+                args.output.glob("*.txt"),
+                key=lambda f: f.stat().st_mtime,
+                reverse=True
+            )
+            transcript_file = txt_files[0] if txt_files else None
+
+        if not transcript_file:
+            print("❌ No transcript file found.")
             sys.exit(1)
 
-        transcript_file = txt_files[0]
         title = transcript_file.stem
         transcript_text = transcript_file.read_text(encoding="utf-8")
+        print(f"   ✅ Transcript loaded: {transcript_file.name}")
 
-    except FileNotFoundError:
-        print("❌ youtube-clean-transcript not found. Please install it in editable mode.")
-        server_manager.stop_if_needed()
+    except subprocess.CalledProcessError as e:
+        print("❌ Failed to download transcript:")
+        print(e.stderr)
         sys.exit(1)
     except Exception as e:
         print(f"❌ Error fetching transcript: {e}")
-        server_manager.stop_if_needed()
         sys.exit(1)
-
-    # 2. Generate summary with full options
-    print(f"\n🤖 Generating {args.style} summary in {args.lang}...")
+    
+    # 2. Start server
+    server_manager = LlamaServerManager()
+    server_manager.start()
+    
+    # 3. Generate summary(s)
     summarizer = LocalSummarizer()
 
-    summary = summarizer.summarize(
-        transcript_text,
-        title=title,
-        style=args.style,
-        language=args.lang
-    )
+    if args.style:
+        print(f"\n🤖 Generating {args.style} summary...")
+        summaries = summarizer.summarize(transcript_text, title=title, language=args.lang)
+        summaries = {args.style: summaries.get(args.style, "Error: style not generated")}
+    else:
+        print("\n🤖 Generating 3 summaries (detailed + structured + bullets)...")
+        summaries = summarizer.summarize(transcript_text, title=title, language=args.lang)
 
-    # Save with nice filename (style + lang suffix like in summarize-me-this-text)
-    suffix = f" [{args.style}]" if args.style != "structured" else ""
-    summary_file = transcript_file.with_name(f"{title} - Summary{suffix} ({args.lang}).md")
+    # 4. Save summary(s) with clickable URL
+    for style, content in summaries.items():
+        suffix = f" - {style.capitalize()} Summary" if not args.style else f" - Summary"
+        summary_file = transcript_file.with_name(f"{title}{suffix} ({args.lang}).md")
 
-    summary_file.write_text(
-        f"# Summary: {title}\n"
-        f"Style: {args.style} | Lang: {args.lang}\n\n"
-        f"{summary}",
-        encoding="utf-8"
-    )
+        header = f"""# Summary: {title}
 
-    print(f"✅ Summary saved → {summary_file.name}")
+**Video:** [{title}]({args.url})
+**URL:** {args.url}
+
+**Style:** {style}
+**Language:** {args.lang}
+**Source:** {transcript_file.name}
+
+---
+
+"""
+
+        summary_file.write_text(header + content, encoding="utf-8")
+        print(f"✅ Saved → {summary_file.name}")
 
     # Cleanup
     if not args.keep_server:
@@ -121,7 +144,8 @@ def main() -> None:
     else:
         print("🔄 Server kept running (--keep-server)")
 
-    print("\n🎉 Done!")
+    print("\n✅ Success !")
+    print("🎉 Done!")
 
 
 if __name__ == "__main__":
