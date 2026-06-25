@@ -18,6 +18,7 @@
 ## Prerequisites
 
 - Python 3.10+
+- `python3-venv`
 - [llama.cpp](https://github.com/ggerganov/llama.cpp) with `llama-server`
 - A good LLM model (Gemma-4, Llama-3.1, Mistral, Qwen, etc.)
 - https://github.com/ErwanDevigon/youtube-clean-transcript
@@ -26,12 +27,17 @@
 ## Installation
 
 ```bash
-# Clone the repositories
+# 1. Clone the repositories
 git clone https://github.com/ErwanDevigon/summarize-youtube-video.git
 git clone https://github.com/ErwanDevigon/youtube-clean-transcript
 git clone https://github.com/ErwanDevigon/summarize-me-this-text.git
 
-# Install in editable mode
+# 2. Create virtual environment and install in editable mode
+cd ~/Projets/summarize-youtube-video
+rm -rf venv
+python3 -m venv venv
+source venv/bin/activate
+
 cd ~/Projets/summarize-me-this-text && pip install -e .
 cd ~/Projets/youtube-clean-transcript && pip install -e .
 cd ~/Projets/summarize-youtube-video && pip install -e .
@@ -40,6 +46,7 @@ cd ~/Projets/summarize-youtube-video && pip install -e .
 ## Usage
 
 ```bash
+rezmyt
 rezmyt https://youtu.be/v4F1gFy-hqg
 rezmyt https://youtu.be/v4F1gFy-hqg -s bullets
 rezmyt https://youtu.be/v4F1gFy-hqg -s detailed -l en
@@ -54,8 +61,9 @@ rezmyt https://youtu.be/v4F1gFy-hqg -s detailed -l en
 | `-l, --lang`     | Language (`fr` or `en`, default: `fr`) |
 | `-o, --output`   | Output directory (default: `~/transcripts`) |
 | `--keep-server`  | Do not stop the llama-server after running |
+Note: if the llama-server is already running it won't be stopped by rezmyt.
 
-## Recommended Alias (add to `~/.bash_aliases` or `~/.zshrc`)
+## Recommended Alias (add to `~/.bashrc` or `~/.zshrc`)
 
 ```bash
 rezmyt() {
@@ -78,7 +86,15 @@ rezmyt() {
 }
 ```
 
-> After adding the alias, run `source ~/.bash_aliases` (or restart your terminal).
+> After adding the alias, run 
+```bash
+source ~/.bashrc`
+```
+or 
+```bash
+source ~/.zshrc`
+```
+(or restart your terminal).
 
 ## Output Files
 
